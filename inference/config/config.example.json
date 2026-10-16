@@ -1,0 +1,4 @@
+{
+  "callback": "https://example.com/callback",
+  "token": "https://example.com/token"
+}

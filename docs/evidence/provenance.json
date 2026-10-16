@@ -1,0 +1,30 @@
+{
+  "evidence_status": "Inherited artifacts, not newly trained or independently validated predictions.",
+  "artifacts": [
+    {
+      "snapshot": "svr-evaluation.csv",
+      "original_local_path": "result/Evaluation/Eval_results.csv",
+      "sha256": "e8e7018ace48e566ddab420d7f75ba2931bf1bab846443368701fd5401732bd4"
+    },
+    {
+      "snapshot": "feature-and-price-evaluation.csv",
+      "original_local_path": "result/Evaluation/one_predict_eva.csv",
+      "sha256": "65867778120f09d04bacd2115b0f7437d60e1b2c61e76367dd215f32cab66d1c"
+    },
+    {
+      "snapshot": "annual-price-evaluation.csv",
+      "original_local_path": "result/Evaluation/year/year_predict_eva.csv",
+      "sha256": "1447ee6fd5d39242be7465d5eca142b5682971ddcd40900aa6af68320c949cf2"
+    }
+  ],
+  "monthly_arithmetic_check": {
+    "MAE": 13.754333333333337,
+    "RMSE": 15.019800375948197,
+    "R2": 0.36551574062499914,
+    "prediction_source": "month.log",
+    "prediction_source_sha256": "43fb17ef19d536b7f6dee440868ab679bb9fa26a3c32def7123414158b95de7a",
+    "observed_rows": 30,
+    "distinct_observation_dates": 29,
+    "note": "Pairing reproduces the existing monthly evaluation, including its duplicate final observation; this is not a clean backtest."
+  }
+}

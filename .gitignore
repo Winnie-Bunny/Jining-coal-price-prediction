@@ -1,0 +1,18 @@
+# Local environments and caches
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+# Logs, generated reports and runtime configuration
+*.log
+*.log.*
+/result/
+/inference/log/
+/inference/result.json
+/inference/results/
+/inference/config/config.json

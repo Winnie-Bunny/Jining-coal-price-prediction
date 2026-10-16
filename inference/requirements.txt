@@ -1,0 +1,10 @@
+Flask==3.1.2
+Flask_RESTful==0.3.10
+joblib==1.4.2
+numpy==2.3.4
+pandas==2.3.3
+Requests==2.32.5
+scipy==1.16.2
+shap==0.48.0
+torch==2.7.1
+scikit-learn==1.7.1
