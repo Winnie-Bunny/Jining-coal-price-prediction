@@ -7,7 +7,7 @@ services:
     repo: https://github.com/Winnie-Bunny/Jining-coal-price-prediction
     branch: main
     plan: free
-    autoDeployTrigger: 'off'
+    autoDeployTrigger: checksPass
     dockerfilePath: ./inference/dockerfile
     dockerContext: ./inference
     healthCheckPath: /health
