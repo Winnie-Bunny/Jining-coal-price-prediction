@@ -5,7 +5,8 @@ import datetime
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
+MATERIALS_ROOT = Path(__file__).resolve().parents[1]
 ALIASES = {
     '京唐港瘦煤(加)（元/吨）': '京唐港瘦煤（加）（元/吨）',
     '龙煤鹤岗1/3焦煤(A8.5)（元/吨）': '龙煤集团鹤岗1/3焦煤(A8.5）（元/吨）',
@@ -22,7 +23,7 @@ ALIASES = {
 
 
 def make_request(model_id):
-    mapping = json.loads((ROOT / 'docs/feature-map.json').read_text())
+    mapping = json.loads((MATERIALS_ROOT / 'docs/feature-map.json').read_text())
     with (ROOT / 'data/cci_jining_coal.csv').open(encoding='utf-8-sig', newline='') as stream:
         rows = list(csv.DictReader(stream))
     # Drop exact duplicate records only; do not choose silently between conflicting values.

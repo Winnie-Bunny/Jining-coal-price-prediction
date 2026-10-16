@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>济宁煤价 · 预测工作台</title><link rel="stylesheet" href="/static/style.css"><script defer src="/static/app.js"></script></head>
+<body>
+<header><a class="brand" href="/">◈ 济宁煤价 <span>CCI · RESEARCH</span></a><span id="health" class="pill">检查服务…</span></header>
+<main>
+<div class="eyebrow">山东 · 济宁 / 气煤价格研究</div><h1>让数据，呈现价格趋势。</h1><p class="intro">上传历史因素数据，生成煤价预测，并查看影响价格的主要因素。</p>
+<div class="workspace">
+<aside class="card"><div class="section-title"><span>01</span><h2>创建预测</h2></div>
+<form id="forecast-form">
+<label for="api-key">访问密钥</label><input id="api-key" type="password" autocomplete="off" placeholder="输入管理员提供的 API 密钥"><p class="hint">密钥只保留在当前页面内存中。</p>
+<label for="horizon">预测周期</label><select id="horizon"><option value="7">未来 7 天 · 周预测</option><option value="30">未来 30 天 · 月预测</option><option value="365">未来 365 天 · 年预测</option></select>
+<label for="data-file">历史数据文件</label><div class="upload"><input id="data-file" type="file" accept=".json,application/json"><p>上传 API 格式 JSON 文件</p><small id="file-info">周 / 月 / 年分别需 60 / 90 / 364 天历史数据</small></div>
+<p class="hint">包含日期、历史价格和全部 211 项因素。年预测需恰好 364 天连续数据；文件 id 应与所选周期一致。</p>
+<button id="submit" type="submit">开始预测 ↗</button>
+</form><div class="divider"></div>
+<label for="task-id">查询已有任务</label><div class="lookup"><input id="task-id" placeholder="输入任务编号"><button id="lookup" class="secondary" type="button">查询</button></div>
+<p id="status" role="status" aria-live="polite">准备就绪，等待上传数据。</p>
+</aside>
+<section class="card results"><div class="section-title"><span>02</span><h2>预测概览</h2><button id="download" class="secondary" disabled>下载结果 ↓</button></div>
+<div class="metrics"><div><small>首日预测</small><strong id="first">—</strong></div><div><small>末日预测</small><strong id="last">—</strong></div><div><small>区间均价</small><strong id="average">—</strong></div></div>
+<div class="chart-heading">煤价预测曲线 <span>元 / 吨</span></div><div id="chart" class="chart"><div class="empty">预测完成后，这里将展示价格曲线。<small>当前没有预测结果</small></div></div>
+<div class="details"><div><h3>逐日预测</h3><div class="table-wrap"><table><thead><tr><th>日期</th><th>预测价格（元/吨）</th></tr></thead><tbody id="rows"><tr><td colspan="2">暂无数据</td></tr></tbody></table></div></div><div><h3>主要影响因素 <small>首个预测日 · SHAP 绝对值</small></h3><ol id="factors"><li>预测完成后展示前 8 项因素。</li></ol><p class="hint">SHAP 值解释模型输入的贡献大小，不代表因果关系。</p></div></div>
+</section></div>
+<footer>模型：LSTM + SVR · 解释：SHAP <span>预测基于上传数据，不代表实时行情；历史表现不能保证未来结果。</span></footer>
+</main></body></html>

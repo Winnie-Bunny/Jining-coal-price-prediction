@@ -1,139 +1,169 @@
-import warnings
+"""Single-process forecast API and dashboard with durable task metadata."""
+import datetime
+from contextlib import contextmanager
+import hmac
 import json
-import uuid
+import logging
+import math
 import os
-import requests
+from pathlib import Path
+import sqlite3
 import threading
-import pandas as pd
+import uuid
+
 import numpy as np
-from flask import Flask
-from flask_restful import Api, Resource, request
+import pandas as pd
+from flask import Flask, jsonify, request
+from flask_restful import Api, Resource
 import week2week.predict_price as wk
 import month2month.predict_price as mt
 import year2year.predict_price as yr
-import logging.handlers
-warnings.filterwarnings("ignore")
 
-
-app = Flask(__name__)
+app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent / 'static'))
+app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024
 api = Api(app)
-
-
-file_path = os.path.dirname(os.path.abspath(__file__))
-os.makedirs(os.path.join(file_path, 'log'), exist_ok=True)
-path_log = os.path.join(file_path, 'log', 'app.log')
-myapp = logging.getLogger()
-myapp.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(levelname)s: %(asctime)s %(filename)s %(message)s')
-file_handler = logging.handlers.TimedRotatingFileHandler(path_log, when='d', interval=1, backupCount=1)
-file_handler.suffix = "%Y-%m-%d.log"  # Suffix for rotated log files.
-file_handler.setFormatter(formatter)
-myapp.addHandler(file_handler)
-
-# In-memory task status store.
+file_path = str(Path(__file__).resolve().parent)
 tasks = {}
+worker_slot = threading.BoundedSemaphore(1)
+logging.basicConfig(level=logging.INFO)
 
 
-def get_url():
-    file_ = os.path.dirname(os.path.abspath(__file__))
-    file_ = file_ + '/config/config.json'
-    with open(file_, 'r') as file:
-        url = json.load(file)
-    callback = url["callback"]
-    token = url["token"]
-    return token, callback
+def state_dir():
+    folder = Path(os.environ.get('STATE_DIR', str(Path(file_path) / 'results')))
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+@contextmanager
+def database():
+    conn = sqlite3.connect(state_dir() / 'tasks.sqlite3', timeout=15)
+    try:
+        with conn:
+            conn.execute('CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, status TEXT NOT NULL, result TEXT NOT NULL)')
+            yield conn
+    finally:
+        conn.close()
+
+
+def save_task(task_id, status, result):
+    result = convert_numpy(result)
+    with database() as conn:
+        conn.execute('INSERT OR REPLACE INTO tasks VALUES (?, ?, ?)',
+                     (task_id, status, json.dumps(result, ensure_ascii=False, allow_nan=False)))
+    tasks[task_id] = {'status': status, 'result': result}
+
+
+def load_task(task_id):
+    with database() as conn:
+        row = conn.execute('SELECT status, result FROM tasks WHERE id = ?', (task_id,)).fetchone()
+    return {'status': row[0], 'result': json.loads(row[1])} if row else None
+
+
+def recover_interrupted_tasks():
+    with database() as conn:
+        conn.execute("UPDATE tasks SET status = 'error', result = ? WHERE status = 'running'",
+                     (json.dumps({'error': 'Service restarted; please submit the forecast again.'}),))
 
 
 def convert_numpy(obj):
-    if isinstance(obj, (np.integer, np.int64, np.int32)):
-        return int(obj)
-    if isinstance(obj, (np.floating, np.float64, np.float32)):
-        return float(obj)
     if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, (np.bool_,)):
-        return bool(obj)
-    if isinstance(obj, (np.datetime64, pd.Timestamp)):
-        return pd.Timestamp(obj).isoformat()
+        return convert_numpy(obj.tolist())
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, (pd.Timestamp, datetime.date)):
+        return obj.isoformat()
     if isinstance(obj, dict):
         return {k: convert_numpy(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [convert_numpy(i) for i in obj]
+    if isinstance(obj, (tuple, list)):
+        return [convert_numpy(v) for v in obj]
     return obj
 
 
-def _run_wrapper(args_tuple):
-    """Unpack the request and task ID passed to the worker thread."""
-    data, task_id = args_tuple
-    run_algorithm(data, task_id)
+@app.before_request
+def authenticate():
+    if request.path == '/tasks' or request.path.startswith('/tasks/'):
+        expected = os.environ.get('API_KEY', '')
+        if expected and not hmac.compare_digest(request.headers.get('Authorization', '').encode('utf-8'), ('Bearer ' + expected).encode('utf-8')):
+            return jsonify(message='A valid API key is required'), 401
+
+
+@app.after_request
+def security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+    if request.path.startswith('/tasks'):
+        response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.get('/')
+def dashboard():
+    return app.send_static_file('index.html')
+
+
+@app.get('/health')
+def health():
+    expected = {'week': wk, 'month': mt, 'year': yr}
+    ready = all(len(module.lstm_models) == len(module.FEATURE_KEYS) for module in expected.values())
+    return jsonify(status='ok' if ready else 'unavailable'), 200 if ready else 503
 
 
 def run_algorithm(data, task_id):
-    final_result = {}
-    result_dir = os.path.join(file_path, 'results')
-    os.makedirs(result_dir, exist_ok=True)
-    path = os.path.join(result_dir, f'{task_id}.json')
-    # Read the request and select the forecasting model.
     try:
-        model_id = data['id']
-        final_result['id'] = model_id
-        if model_id == 7:  # Weekly model.
-            price_data, hist, date_last = wk.get_data(data)
-            optimize_result = wk.optimize_model(price_data, hist, date_last)
-        elif model_id == 30:  # Monthly model.
-            price_data, hist, date_last = mt.get_data(data)
-            optimize_result = mt.optimize_model(price_data, hist, date_last)
-        elif model_id == 365:  # Annual model.
-            price_data, hist, date_last = yr.get_data(data)
-            optimize_result = yr.optimize_model(price_data, hist, date_last)
-        else:
-            raise ValueError(f"Invalid model id: {model_id}")
-        # Include the model ID and forecasts in the response.
-        final_result["data"] = optimize_result
-
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(final_result, f, ensure_ascii=False, indent=4, default=convert_numpy)
-        logging.info(f"Model {model_id} results written to {path}")
-        final_result = convert_numpy(final_result)  # Convert nested NumPy values for JSON serialization.
-        tasks[task_id].update({
-            "status": "finished",
-            "result": final_result
-        })
-
-    except Exception as e:
-        logging.exception("Background task failed")
-        tasks[task_id].update({
-            "status": "error",
-            "result": {"error": str(e)}
-        })
-
-    # Optional callback integration (currently disabled).
-    # body = json.dumps(final_result, ensure_ascii=False, default=convert_numpy)  # Callback payload.
-    # url_token, url_callback = get_url()
-    # token_message = requests.get(url_token)  # Fetch the access token.
-    # token_str = token_message.text
-    # token_value = json.loads(token_str)
-    # token_result = token_value['result']
-    # headers = {
-    #     'x-access-token': token_result,
-    #     'Content-Type': 'application/json'
-    # }
-    # x = requests.request(method="POST", url=url_callback, data=body, verify=False, headers=headers)
-    # logging.info(x.text)
-    # print("Callback response received")
+        module = {7: wk, 30: mt, 365: yr}[data['id']]
+        price_data, hist, date_last = module.get_data(data)
+        result = convert_numpy({'id': data['id'], 'data': module.optimize_model(price_data, hist, date_last)})
+        path = state_dir() / f'{task_id}.json'
+        temporary = path.with_suffix('.tmp')
+        temporary.write_text(json.dumps(result, ensure_ascii=False, allow_nan=False), encoding='utf-8')
+        temporary.replace(path)
+        save_task(task_id, 'finished', result)
+    except Exception:
+        logging.exception('Forecast failed: %s', task_id)
+        save_task(task_id, 'error', {'error': 'Forecast failed. Check server logs or contact the administrator.'})
+    finally:
+        worker_slot.release()
 
 
-# Task resource endpoints.
+def validate_records(data):
+    records = data.get('price_data')
+    minimum = {7: 60, 30: 90, 365: 364}[data['id']]
+    if not isinstance(records, list) or not minimum <= len(records) <= 5000:
+        return f'price_data requires {minimum} to 5000 records'
+    if data['id'] == 365 and len(records) != 364:
+        return 'The annual model requires exactly 364 consecutive daily records'
+    module = {7: wk, 30: mt, 365: yr}[data['id']]
+    numeric = set(module.FEATURE_KEYS) | {'history_price'}
+    previous = None
+    for row in records:
+        if not isinstance(row, dict) or not (numeric | {'date'}).issubset(row):
+            return 'Records must include date, history_price, and all feature fields'
+        try:
+            current = datetime.date.fromisoformat(row['date'])
+        except (ValueError, TypeError):
+            return 'Dates must use YYYY-MM-DD'
+        if current.isoformat() != row['date']:
+            return 'Dates must use YYYY-MM-DD'
+        if previous and (current - previous).days != 1:
+            return 'Records must be consecutive daily observations in ascending order'
+        previous = current
+        for key in numeric:
+            try:
+                valid = type(row[key]) in (int, float) and math.isfinite(row[key])
+            except OverflowError:
+                valid = False
+            if not valid:
+                return f'{key} must be a finite number'
+    return None
+
+
 class TaskResource(Resource):
     def get(self, task_id):
-        if task_id not in tasks:
+        task = load_task(task_id)
+        if task is None:
             return {'message': 'Task not found'}, 404
-        # Return the task ID together with its status and result.
-        return {
-            'status': tasks[task_id]['status'],
-            'task_id': task_id,
-            'result': tasks[task_id]['result']  # Empty until the task finishes.
-        }, 200
+        return dict(task, task_id=task_id), 200
 
 
 class TaskCreations(Resource):
@@ -141,27 +171,29 @@ class TaskCreations(Resource):
         data = request.get_json()
         if not isinstance(data, dict) or type(data.get('id')) is not int or data['id'] not in (7, 30, 365):
             return {'msg': 'id must be 7, 30, or 365'}, 400
-        records = data.get('price_data')
-        minimum = {7: 60, 30: 90, 365: 364}[data['id']]
-        if not isinstance(records, list) or len(records) < minimum:
-            return {'msg': f'price_data requires at least {minimum} records in ascending date order'}, 400
-        model_module = {7: wk, 30: mt, 365: yr}[data['id']]
-        required = set(model_module.FEATURE_KEYS) | {'date', 'history_price'}
-        if any(not isinstance(row, dict) or not required.issubset(row) for row in records):
-            return {'msg': 'price_data records must include date, history_price, and all feature fields'}, 400
+        error = validate_records(data)
+        if error:
+            return {'msg': error}, 400
+        if not worker_slot.acquire(blocking=False):
+            return {'msg': 'A forecast is already running. Please try again later.'}, 429
         task_id = str(uuid.uuid4())
-        tasks[task_id] = {"status": "running", "result": {}}
-
-        threading.Thread(target=_run_wrapper, args=((data, task_id),), daemon=True).start()
-        logging.info(f"Task submitted: task_id={task_id}, status={tasks[task_id]['status']}")
-        return {"status": "running", "task_id": task_id}, 201
+        try:
+            save_task(task_id, 'running', {})
+            threading.Thread(target=run_algorithm, args=(data, task_id), daemon=True).start()
+        except Exception:
+            worker_slot.release()
+            logging.exception('Could not start task')
+            return {'msg': 'Could not start the forecast'}, 503
+        return {'status': 'running', 'task_id': task_id}, 201
 
 
 api.add_resource(TaskResource, '/tasks/<string:task_id>')
 api.add_resource(TaskCreations, '/tasks')
 
 if __name__ == '__main__':
-    app.run(host=os.environ.get('HOST', '127.0.0.1'), debug=False,
-            port=int(os.environ.get('PORT', '7020')))
-
-    # http://127.0.0.1:7020/tasks
+    from waitress import serve
+    if os.environ.get('REQUIRE_API_KEY') == '1' and not os.environ.get('API_KEY'):
+        raise RuntimeError('API_KEY must be configured for public deployment')
+    recover_interrupted_tasks()
+    serve(app, host=os.environ.get('HOST', '127.0.0.1'),
+          port=int(os.environ.get('PORT', '7020')), threads=4)

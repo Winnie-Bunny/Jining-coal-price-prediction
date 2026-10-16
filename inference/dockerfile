@@ -1,8 +1,15 @@
 FROM python:3.11-slim
-WORKDIR /price_QM
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
+    HOST=0.0.0.0 PORT=7020 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-ENV HOST=0.0.0.0 PORT=7020
+RUN pip install --no-cache-dir torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r requirements.txt \
+    && useradd --create-home --uid 10001 coal
+COPY --chown=coal:coal . .
+ENV STATE_DIR=/app/results
+ENTRYPOINT ["python", "entrypoint.py"]
 EXPOSE 7020
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '7020') + '/health', timeout=4)"
 CMD ["python", "app.py"]

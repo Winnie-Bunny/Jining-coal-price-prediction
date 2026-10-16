@@ -1,0 +1,13 @@
+name: Project checks
+on: [push, pull_request]
+jobs:
+  materials:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r project_materials_2026-10-16/requirements-test.txt
+      - run: python project_materials_2026-10-16/scripts/check_project.py
+      - run: python -m unittest discover -s project_materials_2026-10-16/tests -v

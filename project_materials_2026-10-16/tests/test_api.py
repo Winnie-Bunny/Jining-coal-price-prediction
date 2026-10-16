@@ -9,7 +9,8 @@ import types
 import unittest
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
+MATERIALS_ROOT = Path(__file__).resolve().parents[1]
 HAS_DEPS = all(importlib.util.find_spec(n) for n in ('flask', 'flask_restful', 'numpy', 'pandas', 'requests'))
 
 
@@ -18,11 +19,12 @@ class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         fake_modules = {}
-        keys = list(json.loads((ROOT / 'docs/feature-map.json').read_text()))
+        keys = list(json.loads((MATERIALS_ROOT / 'docs/feature-map.json').read_text()))
         for period in ('week2week', 'month2month', 'year2year'):
             package = types.ModuleType(period)
             module = types.ModuleType(f'{period}.predict_price')
             module.FEATURE_KEYS = keys
+            module.lstm_models = {key: object() for key in keys}
             module.get_data = lambda data: (None, None, None)
             module.optimize_model = lambda *args: [{'predict_price': 100.0}]
             package.predict_price = module
@@ -36,6 +38,11 @@ class ApiTests(unittest.TestCase):
 
     def setUp(self):
         self.module.tasks.clear()
+        self.folder = tempfile.TemporaryDirectory()
+        self.path_patch = patch.object(self.module, 'file_path', self.folder.name)
+        self.path_patch.start()
+        self.addCleanup(self.path_patch.stop)
+        self.addCleanup(self.folder.cleanup)
 
     def test_invalid_requests_do_not_create_tasks(self):
         for data in ({}, [], {'id': True}, {'id': '7'}, {'id': 8}, {'id': 7},
@@ -55,7 +62,7 @@ class ApiTests(unittest.TestCase):
         self.fail('worker did not finish')
 
     def test_success_writes_separate_task_results(self):
-        request = json.loads((ROOT / 'examples/request-week.json').read_text())
+        request = json.loads((MATERIALS_ROOT / 'examples/request-week.json').read_text())
         with tempfile.TemporaryDirectory() as folder, patch.object(self.module, 'file_path', folder):
             ids = []
             for _ in range(2):
@@ -71,13 +78,53 @@ class ApiTests(unittest.TestCase):
             self.assertNotEqual(*ids)
 
     def test_worker_failure_is_queryable(self):
-        request = json.loads((ROOT / 'examples/request-week.json').read_text())
+        request = json.loads((MATERIALS_ROOT / 'examples/request-week.json').read_text())
         with tempfile.TemporaryDirectory() as folder, patch.object(self.module, 'file_path', folder), \
                 patch.object(self.module.wk, 'get_data', side_effect=ValueError('model failure')):
-            response = self.client.post('/tasks', json=request)
-            body = self.wait_for_task(response.get_json()['task_id'])
+            with self.assertLogs(level='ERROR'):
+                response = self.client.post('/tasks', json=request)
+                body = self.wait_for_task(response.get_json()['task_id'])
             self.assertEqual(body['status'], 'error')
-            self.assertEqual(body['result'], {'error': 'model failure'})
+            self.assertEqual(body['result'], {'error': 'Forecast failed. Check server logs or contact the administrator.'})
+
+    def test_dashboard_health_and_authentication(self):
+        with self.client.get('/') as response:
+            self.assertEqual(response.status_code, 200)
+        with self.client.get('/static/app.js') as response:
+            self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get('/health').status_code, 200)
+        with patch.dict('os.environ', {'API_KEY': 'test-secret'}):
+            self.assertEqual(self.client.get('/tasks/unknown').status_code, 401)
+            self.assertEqual(self.client.post('/tasks', json={}).status_code, 401)
+            self.assertEqual(self.client.get('/tasks/unknown', headers={'Authorization': 'Bearer test-secret'}).status_code, 404)
+            self.assertEqual(self.client.get('/health').status_code, 200)
+
+    def test_persisted_results_and_restart_recovery(self):
+        self.module.save_task('finished-task', 'finished', {'id': 7, 'data': []})
+        self.module.save_task('interrupted-task', 'running', {})
+        self.module.tasks.clear()
+        self.module.recover_interrupted_tasks()
+        finished = self.client.get('/tasks/finished-task').get_json()
+        self.assertEqual(finished['status'], 'finished')
+        self.assertEqual(finished['result']['id'], 7)
+        interrupted = self.client.get('/tasks/interrupted-task').get_json()
+        self.assertEqual(interrupted['status'], 'error')
+
+    def test_invalid_dates_and_values_and_capacity(self):
+        original = json.loads((MATERIALS_ROOT / 'examples/request-week.json').read_text())
+        import copy
+        for field, value in (('date', 'bad-date'), ('history_price', '100'), ('history_price', True), ('history_price', float('nan'))):
+            data = copy.deepcopy(original)
+            data['price_data'][0][field] = value
+            self.assertEqual(self.client.post('/tasks', json=data).status_code, 400)
+        data = copy.deepcopy(original)
+        data['price_data'][1]['date'] = data['price_data'][0]['date']
+        self.assertEqual(self.client.post('/tasks', json=data).status_code, 400)
+        self.module.worker_slot.acquire()
+        try:
+            self.assertEqual(self.client.post('/tasks', json=original).status_code, 429)
+        finally:
+            self.module.worker_slot.release()
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@
 
 The first column contains the date, followed by 211 external factors, the historical-price feature (`历史价格`), and the target price (`CCI济宁气煤(元/吨)`, CCI Jining gas coal price in CNY per metric tonne). The data source, license, missing-value treatment, and method used to construct the historical-price feature were not supplied with the original project and remain undocumented.
 
-The API uses English feature codes, defined by the keys in [feature-map.json](feature-map.json). Original Chinese CSV headers and feature-map values are preserved for compatibility with existing preprocessing and model artifacts. Eleven mapped field names differ from their CSV headers in wording or parentheses. `scripts/make_request.py` handles these aliases explicitly without changing the source data.
+The API uses English feature codes, defined by the keys in [feature-map.json](feature-map.json). Original Chinese CSV headers and feature-map values are preserved for compatibility with existing preprocessing and model artifacts. Eleven mapped field names differ from their CSV headers in wording or parentheses. `project_materials_2026-10-16/scripts/make_request.py` handles these aliases explicitly without changing the source data.
 
 ## Model inventory and forecast horizons
 
@@ -19,7 +19,7 @@ The weekly LSTMs use 60 daily records to forecast 7 days. The monthly LSTMs use 
 [artifacts.sha256](artifacts.sha256) lists SHA-256 digests for the existing CSV, PKL, and PT files. Verify transfer integrity from the repository root:
 
 ```bash
-shasum -a 256 -c docs/artifacts.sha256
+shasum -a 256 -c project_materials_2026-10-16/docs/artifacts.sha256
 ```
 
 Existing forecasts and logs do not establish reproducibility. The exact training environment, fixed random seeds, full data provenance, and independent backtest records are missing. Identical numerical results in a new environment and future forecast performance have not been established. Load only trusted model files: deserializing PKL/Joblib files can execute code.

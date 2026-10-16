@@ -11,7 +11,7 @@ The following checks were recorded during the initial repository preparation. Th
 - SHA-256 verification passed for 3,823 data and model files.
 - Request generation checks passed: model IDs `7`, `30`, and `365` produced 60, 90, and 364 consecutive daily records respectively, each with 211 numeric factors and a numeric historical-price input.
 - Flask API tests covered invalid requests returning HTTP 400 without creating a task, unknown tasks returning HTTP 404, successful completion with separate result files, and queryable background errors. Deterministic model substitutes exercised the real routes and background threads; the actual prediction models were not executed.
-- A temporary Python 3.13 environment successfully installed the API dependencies in `requirements-test.txt` and passed all four tests.
+- A temporary Python 3.13 environment successfully installed the API dependencies in `project_materials_2026-10-16/requirements-test.txt` and passed all four tests.
 
 ## Repository preparation changes
 

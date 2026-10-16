@@ -8,3 +8,4 @@ scipy==1.16.2
 shap==0.48.0
 torch==2.7.1
 scikit-learn==1.7.1
+waitress==3.0.2

@@ -25,7 +25,7 @@ The repository does not establish a causal model of coal prices, a trading strat
 
 ## 2. Data and artifacts
 
-The dataset is [data/cci_jining_coal.csv](data/cci_jining_coal.csv). Its contents are preserved as supplied.
+The dataset is [data/cci_jining_coal.csv](../data/cci_jining_coal.csv). Its contents are preserved as supplied.
 
 | Property | Observed value |
 | --- | --- |
@@ -142,9 +142,9 @@ The [validation record](docs/VALIDATION.md) documents four passing tests and int
 For setup and service commands, use the [README](README.md). From the repository root:
 
 ```bash
-python scripts/check_project.py
-python -m unittest discover -s tests -v
-python scripts/make_request.py --id 7 --output /tmp/request-week.json
+python project_materials_2026-10-16/scripts/check_project.py
+python -m unittest discover -s project_materials_2026-10-16/tests -v
+python project_materials_2026-10-16/scripts/make_request.py --id 7 --output /tmp/request-week.json
 python inference/app.py
 ```
 
@@ -158,8 +158,8 @@ The next research step is a clean, time-aware backtest with deduplicated data, p
 
 ## Implementation references
 
-- [SVR training and evaluation](svr_price.py)
-- [Weekly training](predict_week.py), [monthly training](predict_month.py), and [annual training](predict_year.py)
-- [Weekly inference](inference/week2week/predict_price.py), [monthly inference](inference/month2month/predict_price.py), and [annual inference](inference/year2year/predict_price.py)
-- [Flask service](inference/app.py)
+- [SVR training and evaluation](../svr_price.py)
+- [Weekly training](../predict_week.py), [monthly training](../predict_month.py), and [annual training](../predict_year.py)
+- [Weekly inference](../inference/week2week/predict_price.py), [monthly inference](../inference/month2month/predict_price.py), and [annual inference](../inference/year2year/predict_price.py)
+- [Flask service](../inference/app.py)
 - [Dataset and model notes](docs/DATA.md), [API reference](docs/API.md), and [recorded evidence](docs/evidence/provenance.json)
