@@ -1,0 +1,22 @@
+# Free trial: state is ephemeral and may be lost on restart/redeploy.
+# Render rebuilds the exact verified commit; GHCR is also retained for portability.
+services:
+  - type: web
+    name: jining-coal-price
+    runtime: docker
+    repo: https://github.com/Winnie-Bunny/Jining-coal-price-prediction
+    branch: main
+    plan: free
+    autoDeployTrigger: 'off'
+    dockerfilePath: ./inference/dockerfile
+    dockerContext: ./inference
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: REQUIRE_API_KEY
+        value: '1'
+      - key: API_KEY
+        generateValue: true
+      - key: STATE_DIR
+        value: /app/results

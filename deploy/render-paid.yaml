@@ -1,0 +1,26 @@
+# Review the paid plan/disk before applying this Blueprint.
+# Render rebuilds the exact verified commit; GHCR is also retained for portability.
+services:
+  - type: web
+    name: jining-coal-price
+    runtime: docker
+    repo: https://github.com/Winnie-Bunny/Jining-coal-price-prediction
+    branch: main
+    plan: 1c-2g
+    autoDeployTrigger: 'off'
+    dockerfilePath: ./inference/dockerfile
+    dockerContext: ./inference
+    healthCheckPath: /health
+    disk:
+      name: forecast-state
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: REQUIRE_API_KEY
+        value: '1'
+      - key: API_KEY
+        generateValue: true
+      - key: STATE_DIR
+        value: /var/data
