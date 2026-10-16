@@ -12,7 +12,7 @@
 
 ## 自动部署已配置
 
-Render 自动部署策略为 After CI Checks Pass，主分支检查全部通过后才上线。健康检查路径为 /health。该原生流程不需要 GitHub 保存 Render 部署钩子密钥；已移除未使用的可选钩子步骤，避免重复部署。
+Render 自动部署策略为 After CI Checks Pass，主分支检查全部通过后才上线。健康检查路径为 /health。代码来源已从公开仓库 URL 改为账号授权的 GitHub 仓库，使用 main 分支和 Docker。该原生流程不需要 GitHub 保存 Render 部署钩子密钥；已移除未使用的可选钩子步骤，避免重复部署。
 
 API_KEY 已配置在 Render 的 Environment 中。请在 Render 页面读取后填入网页工作台；不要写进仓库或公开聊天。
 

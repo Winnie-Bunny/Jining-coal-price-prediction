@@ -18,7 +18,7 @@ Render has After CI Checks Pass enabled and healthCheckPath=/health. A completed
 ## Account and service configuration
 
 - GitHub write access to the existing repository and permission to publish Actions workflows.
-- Render account linked to this repository.
+- Render must use the connected Git Provider source for this repository, not the Public Git Repository URL source. In Settings → Source → Edit, select Git Provider, choose Winnie-Bunny/Jining-coal-price-prediction, retain main and Docker. The GitHub deployment credential must have access to this repository. Public-URL services cannot receive automatic Git events even if a CI policy is selected.
 - `deploy/render.yaml` is a free trial without durable storage. Its 512 MB memory limit may be insufficient for PyTorch and all three model bundles; actual startup must be verified. State can be lost on restart/redeploy. `deploy/render-paid.yaml` is a separate draft with 1 CPU / 2 GB RAM and a 1 GB persistent disk: review and approve current charges before applying it. Actual resource requirements must be measured with real workloads.
 - Create a Blueprint with path `deploy/render.yaml` after the verified commit is on main. Initial service creation may deploy immediately, so check CI before creation.
 - The existing service already uses native CI-gated deployment; do not additionally configure a deploy hook, which could cause duplicate deployments.
