@@ -20,7 +20,7 @@
 <section class="card results"><div class="section-title"><span>02</span><h2>预测概览</h2><button id="download" class="secondary" disabled>下载结果 ↓</button></div>
 <div class="metrics"><div><small>首日预测</small><strong id="first">—</strong></div><div><small>末日预测</small><strong id="last">—</strong></div><div><small>区间均价</small><strong id="average">—</strong></div></div>
 <div class="chart-heading">煤价预测曲线 <span>元 / 吨</span></div><div id="chart" class="chart"><div class="empty">预测完成后，这里将展示价格曲线。<small>当前没有预测结果</small></div></div>
-<div class="details"><div><h3>逐日预测</h3><div class="table-wrap"><table><thead><tr><th>日期</th><th>预测价格（元/吨）</th></tr></thead><tbody id="rows"><tr><td colspan="2">暂无数据</td></tr></tbody></table></div></div><div><h3>主要影响因素 <small>首个预测日 · SHAP 绝对值</small></h3><ol id="factors"><li>预测完成后展示前 8 项因素。</li></ol><p class="hint">SHAP 值解释模型输入的贡献大小，不代表因果关系。</p></div></div>
+<div class="details"><div><h3>逐日预测</h3><div class="table-wrap"><table><thead><tr><th>日期</th><th>预测价格（元/吨）</th></tr></thead><tbody id="rows"><tr><td colspan="2">暂无数据</td></tr></tbody></table></div></div><div><h3>主要影响因素 <small>首个预测日 · SHAP 估算绝对值</small></h3><ol id="factors"><li>预测完成后展示前 8 项因素。</li></ol><p class="hint">SHAP 值解释模型输入的贡献大小，不代表因果关系。</p></div></div>
 </section></div>
 <footer>模型：LSTM + SVR · 解释：SHAP <span>预测基于上传数据，不代表实时行情；历史表现不能保证未来结果。</span></footer>
 </main></body></html>

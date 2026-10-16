@@ -7,7 +7,7 @@ The dashboard and API run in one Python process, with one concurrent inference t
 `.github/workflows/ci-cd.yml` runs on pull requests, pushes to main and manual dispatch:
 
 1. Validate syntax, 3,823 model/data checksums, feature mappings, request generation and API integration tests.
-2. Build a Linux CPU-only Docker image and exercise actual model loading and LSTM/SVR forward passes for all three horizons. This is a smoke test, not an accuracy backtest or complete SHAP forecast.
+2. Build a Linux CPU-only Docker image and exercise actual model loading and LSTM/SVR forward passes for all three horizons. Run a complete seven-day forecast with SHAP under a 512 MB container limit. This verifies execution, not forecast accuracy or complete monthly/yearly forecasts.
 3. On main only, publish the verified image to `ghcr.io/winnie-bunny/jining-coal-price-prediction`, tagged with the full commit SHA and `latest`. Repository settings must allow Actions to publish packages. Package access is not changed by this workflow.
 4. If repository variable `RENDER_DEPLOY_ENABLED` is `true`, call the secret `RENDER_DEPLOY_HOOK_URL` with the verified commit SHA. The production environment can apply deployment approval rules if the owner configures them.
 
@@ -53,3 +53,7 @@ Local checks passed: project integrity, seven integration/material tests, fronte
 Not yet verified: local Docker build (Docker is unavailable), actual model compatibility in the Linux image, full forecast execution, GitHub Actions runs, GHCR publication and Render deployment. The automated Docker smoke test is intended to establish model loading compatibility after GitHub access is connected.
 
 Official references: [GitHub image publishing](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images), [Render Blueprint](https://render.com/docs/blueprint-spec), [Render deploy hooks](https://render.com/docs/deploy-hooks).
+
+## Free-instance explanation memory
+
+The first live weekly request exceeded the free instance's 512 MB limit during default Kernel SHAP allocation (confirmed by Render's OOM event). Forecast prices had already been computed. The factor analysis now uses at most 16 evenly spaced background records and 256 mask samples per forecast day. This reduces the synthetic input matrix from roughly 400 MB to roughly 7 MB for 212 features; total process memory is larger. These limits change approximate factor attribution values, not LSTM/SVR prices. Configure SHAP_BACKGROUND_LIMIT (1..95) and SHAP_NSAMPLES (1..4096) for larger instances. Higher limits require more memory. The dashboard labels these values as estimates.
