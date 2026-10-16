@@ -49,7 +49,7 @@ if args.request:
     status, payload = get('/tasks', key, body)
     assert status == 201
     task_id = json.loads(payload)['task_id']
-    print('Real forecast submitted; waiting for completion.', flush=True)
+    print(f'Real forecast submitted: {task_id}; waiting for completion.', flush=True)
     deadline = time.monotonic() + 600
     while time.monotonic() < deadline:
         _, payload = get('/tasks/' + task_id, key)

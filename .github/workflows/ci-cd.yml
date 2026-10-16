@@ -48,7 +48,7 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Real models and full weekly forecast under 512 MB
         run: >-
-          docker run --rm --memory=512m
+          docker run --rm --memory=512m --memory-swap=512m
           -v "$PWD/project_materials_2026-10-16/examples:/requests:ro"
           coal-price:test python smoke_test.py --request /requests/request-week.json
       - name: Set lowercase image name
@@ -67,26 +67,3 @@ jobs:
           docker tag coal-price:test "$IMAGE:latest"
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
-  deploy:
-    needs: docker
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.RENDER_DEPLOY_ENABLED == 'true'
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Trigger Render deployment for the verified commit
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-          VERIFIED_SHA: ${{ github.sha }}
-        run: |
-          python - <<'PY'
-          import os, urllib.parse, urllib.request
-          url = os.environ['RENDER_DEPLOY_HOOK_URL']
-          if not url.startswith('https://api.render.com/deploy/'):
-              raise SystemExit('Configure a valid Render deploy hook in GitHub secrets')
-          separator = '&' if '?' in url else '?'
-          url += separator + urllib.parse.urlencode({'ref': os.environ['VERIFIED_SHA']})
-          with urllib.request.urlopen(urllib.request.Request(url, method='POST'), timeout=30) as response:
-              if response.status not in (200, 201, 202):
-                  raise SystemExit('Render rejected the deployment')
-          print('Deployment requested. Check Render for final health and rollout status.')
-          PY
