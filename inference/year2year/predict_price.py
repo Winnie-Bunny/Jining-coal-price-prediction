@@ -1,6 +1,7 @@
 import joblib
 import pickle
 import shap
+from forecast_explanations import explain_factors
 import torch
 import torch.nn as nn
 import collections
@@ -427,8 +428,7 @@ def optimize_model(price_data, history_price, date_last):
     input_data = np.array(input_data).reshape(365, 212)
 
     print("=============Feature analysis===============")
-    explainer = shap.KernelExplainer(svr_model.predict, bg)
-    shap_values = explainer.shap_values(input_data)
+    shap_values = explain_factors(svr_model, bg, input_data)
 
     for i in range(len(shap_values)):
         global_imp = pd.Series(np.abs(shap_values[i]), index=columns)
