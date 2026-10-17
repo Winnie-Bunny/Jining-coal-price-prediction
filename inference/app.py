@@ -10,6 +10,7 @@ from pathlib import Path
 import sqlite3
 import threading
 import uuid
+from excel_import import ExcelImportError, convert_excel
 
 import numpy as np
 import pandas as pd
@@ -81,7 +82,7 @@ def convert_numpy(obj):
 
 @app.before_request
 def authenticate():
-    if request.path == '/tasks' or request.path.startswith('/tasks/'):
+    if request.path in ('/tasks', '/convert') or request.path.startswith('/tasks/'):
         expected = os.environ.get('API_KEY', '')
         if expected and not hmac.compare_digest(request.headers.get('Authorization', '').encode('utf-8'), ('Bearer ' + expected).encode('utf-8')):
             return jsonify(message='A valid API key is required'), 401
@@ -92,7 +93,7 @@ def security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
-    if request.path.startswith('/tasks'):
+    if request.path.startswith('/tasks') or request.path == '/convert':
         response.headers['Cache-Control'] = 'no-store'
     return response
 
@@ -107,6 +108,26 @@ def health():
     expected = {'week': wk, 'month': mt, 'year': yr}
     ready = all(len(module.lstm_models) == len(module.FEATURE_KEYS) for module in expected.values())
     return jsonify(status='ok' if ready else 'unavailable'), 200 if ready else 503
+
+
+def uploaded_excel():
+    try:
+        model_id = int(request.form.get('id', ''))
+    except ValueError:
+        raise ExcelImportError('请先选择预测周期：7、30 或 365。') from None
+    upload = request.files.get('file')
+    if upload is None:
+        raise ExcelImportError('请选择要上传的 Excel 文件。')
+    return convert_excel(upload.read(), upload.filename, model_id, wk.FEATURE_MAP)
+
+
+@app.post('/convert')
+def convert_upload():
+    try:
+        payload, summary = uploaded_excel()
+        return jsonify(request=payload, summary=summary)
+    except ExcelImportError as error:
+        return jsonify(msg=str(error)), 400
 
 
 def run_algorithm(data, task_id):
@@ -168,7 +189,13 @@ class TaskResource(Resource):
 
 class TaskCreations(Resource):
     def post(self):
-        data = request.get_json()
+        if request.mimetype == 'multipart/form-data':
+            try:
+                data, _ = uploaded_excel()
+            except ExcelImportError as error:
+                return {'msg': str(error)}, 400
+        else:
+            data = request.get_json()
         if not isinstance(data, dict) or type(data.get('id')) is not int or data['id'] not in (7, 30, 365):
             return {'msg': 'id must be 7, 30, or 365'}, 400
         error = validate_records(data)
