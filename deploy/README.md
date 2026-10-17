@@ -28,7 +28,7 @@ The free service jining-coal-price is deployed at https://jining-coal-price.onre
 
 ## Runtime
 
-- `/`: Chinese dashboard. Upload an Excel (.xlsx/.xls) or API-format JSON request; select a matching forecast horizon; enter the API key; submit, poll and download results.
+- `/`: Chinese dashboard. Upload an API-format JSON request; select a matching forecast horizon; enter the API key; submit, poll and download results.
 - `/health`: model readiness, public for health probes.
 - `/tasks` and `/tasks/<id>`: Bearer API key required when `API_KEY` is configured.
 - `REQUIRE_API_KEY=1`: refuse public server startup if the key is absent.
@@ -44,7 +44,7 @@ python -m pip install -r inference/requirements.txt
 python inference/app.py
 ```
 
-Open `http://127.0.0.1:7020`. Generate request files with `project_materials_2026-10-16/scripts/make_request.py`. The dashboard supports Excel and JSON, includes a blank Excel template, and can download converted JSON without submitting a forecast. Raw CSV conversion remains available through the generator. Excel requires all 211 factors plus dates and the historical-price feature.
+Open `http://127.0.0.1:7020`. Generate request files with `project_materials_2026-10-16/scripts/make_request.py`. The dashboard takes JSON; raw CSV conversion is provided by this generator, not by the upload control.
 
 ## Verification status
 

@@ -49,16 +49,3 @@ If processing fails, `status` becomes `error` and `result` contains `{"error":"<
 The original callback code is commented out, so the service does not currently send callbacks to external services. `inference/config/config.example.json` provides an example configuration structure. Copy it to `inference/config/config.json` and configure real addresses only if you restore callback support. Do not commit credentials.
 
 Tasks run in daemon threads and are interrupted when the service exits. The server uses Waitress in a single process, allowing one concurrent forecast; additional submissions return HTTP 429. If API_KEY is set, both task endpoints require Authorization: Bearer <API_KEY>. REQUIRE_API_KEY=1 prevents public startup without a key. The dashboard is served at / and readiness at /health. Multi-process or multi-replica deployment requires a shared queue and database. See ../../deploy/README.md.
-
-
-## Excel conversion and upload
-
-The dashboard accepts `.xlsx`, `.xls` and `.json`. Both `POST /convert` and `POST /tasks` accept multipart form data with `id` (7, 30 or 365) and `file` (Excel). These endpoints use the same Bearer API key as JSON task requests.
-
-`POST /convert` returns HTTP 200 with `{"request":{"id":7,"price_data":[...]},"summary":{"sheet":"数据","total_days":60,"used_days":60,"duplicates_removed":0,"start_date":"...","end_date":"..."}}`. It validates/converts only and does not create a forecast task. Send its `request` object to `POST /tasks`, or upload Excel directly to `/tasks` to receive the usual HTTP 201 task response. The dashboard's conversion button downloads the standard request JSON.
-
-Use the worksheet named `数据`, otherwise the first worksheet. Row 1 must contain headers: 日期/date, 历史价格/history_price and all 211 factors. Chinese model labels, the original CSV aliases and English factor codes are accepted; column order is flexible. Extra target-price/comment columns are ignored. Duplicate columns mapping to the same field are rejected. Values must match the original model units; no factors or historical prices are inferred. Formula cells require previously computed cached values; the server does not evaluate formulas.
-
-Dates may be native Excel dates or YYYY-MM-DD, YYYY/M/D, YYYY年M月D日 text. Rows are sorted, exact duplicate records are merged and conflicting duplicate dates are rejected. All supplied daily records must be consecutive. The converter selects the latest 60/90/364 days for the chosen horizon. Empty rows are skipped; missing values are rejected, never filled with zero. Max upload size is 8 MB (including multipart overhead), max 5000 data rows/512 columns, max expanded XLSX contents 32 MB. Parsing uses read-only XLSX access or on-demand XLS access and never saves raw uploads.
-
-Blank customer template: `/static/downloads/coal-price-template.xlsx`. Its first sheet contains all 213 required headers with blank inputs; its second sheet provides Chinese filling instructions. The test fixture is historical project data and is not live market data.

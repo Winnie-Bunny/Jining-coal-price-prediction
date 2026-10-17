@@ -10,10 +10,8 @@
 <form id="forecast-form">
 <label for="api-key">访问密钥</label><input id="api-key" type="password" autocomplete="off" placeholder="输入管理员提供的 API 密钥"><p class="hint">密钥只保留在当前页面内存中。</p>
 <label for="horizon">预测周期</label><select id="horizon"><option value="7">未来 7 天 · 周预测</option><option value="30">未来 30 天 · 月预测</option><option value="365">未来 365 天 · 年预测</option></select>
-<label for="data-file">历史数据文件</label><div class="upload"><input id="data-file" type="file" accept=".xlsx,.xls,.json,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"><p>上传 Excel 或 JSON 文件</p><small id="file-info">周 / 月 / 年分别需 60 / 90 / 364 天历史数据</small></div>
-<p class="hint">Excel 第一行为列名，支持中文列名或英文代码。包含日期、历史价格和全部 211 项因素；会按日期排序并使用最近 60 / 90 / 364 天。</p>
-<a class="template-link" href="/static/downloads/coal-price-template.xlsx" download>下载 Excel 填写模板 ↓</a>
-<button id="convert-json" class="secondary convert-button" type="button">转换并下载 JSON</button>
+<label for="data-file">历史数据文件</label><div class="upload"><input id="data-file" type="file" accept=".json,application/json"><p>上传 API 格式 JSON 文件</p><small id="file-info">周 / 月 / 年分别需 60 / 90 / 364 天历史数据</small></div>
+<p class="hint">包含日期、历史价格和全部 211 项因素。年预测需恰好 364 天连续数据；文件 id 应与所选周期一致。</p>
 <button id="submit" type="submit">开始预测 ↗</button>
 </form><div class="divider"></div>
 <label for="task-id">查询已有任务</label><div class="lookup"><input id="task-id" placeholder="输入任务编号"><button id="lookup" class="secondary" type="button">查询</button></div>

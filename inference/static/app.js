@@ -7,13 +7,11 @@ async function api(path, options = {}) {
   const key = $('api-key').value.trim();
   if (key) headers.Authorization = `Bearer ${key}`;
   const response = await fetch(path, { ...options, headers });
-  let body;
-  try { body = await response.json(); } catch { throw new Error('服务暂不可用，请稍后重试。'); }
-  if (response.status === 401) throw new Error('访问密钥无效。请填写 Render 服务 Environment 中的 API_KEY，不是账号 API Keys 中的 rnd_ 密钥。');
+  const body = await response.json();
   if (!response.ok) throw new Error(body.msg || body.message || `请求失败 (${response.status})`);
   return body;
 }
-function busy(value) { $('submit').disabled = value; $('convert-json').disabled = value; }
+function busy(value) { $('submit').disabled = value; }
 function stop() { clearTimeout(polling); busy(false); }
 async function query(taskId) {
   clearTimeout(polling);
@@ -31,47 +29,20 @@ async function query(taskId) {
     }
   } catch (error) { stop(); report(error.message); }
 }
-function saveJson(data, filename) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
-  const link = document.createElement('a'); link.href=url; link.download=filename; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-async function readForecastFile() {
-  const file = $('data-file').files[0];
-  if (!file) throw new Error('请先上传 Excel 或 JSON 历史数据文件。');
-  if (file.size > 8 * 1024 * 1024) throw new Error('文件不能超过 8 MB。');
-  const horizon = Number($('horizon').value);
-  if (/\.xlsx?$/i.test(file.name)) {
-    report('正在读取 Excel、检查数据并转换为 JSON…');
-    const form = new FormData(); form.append('file',file); form.append('id',String(horizon));
-    const converted = await api('/convert',{method:'POST',body:form});
-    const summary = converted.summary;
-    $('file-info').textContent = `已读取 ${summary.total_days} 天，使用最近 ${summary.used_days} 天：${summary.start_date} 至 ${summary.end_date}`;
-    return converted.request;
-  }
-  if (!/\.json$/i.test(file.name)) throw new Error('请选择 .xlsx、.xls 或 .json 文件。');
-  let data;
-  try { data = JSON.parse(await file.text()); } catch { throw new Error('JSON 文件格式无效。'); }
-  if (!data || data.id !== horizon) throw new Error('文件中的 id 与所选预测周期不一致。');
-  return data;
-}
 $('forecast-form').addEventListener('submit', async event => {
-  event.preventDefault(); busy(true);
+  event.preventDefault();
+  const file = $('data-file').files[0];
+  if (!file) return report('请先上传 JSON 历史数据文件。');
+  if (file.size > 8 * 1024 * 1024) return report('文件不能超过 8 MB。');
+  busy(true);
   try {
-    const data = await readForecastFile();
-    report('数据已读取，正在提交预测任务…');
-    const task = await api('/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    const data = JSON.parse(await file.text());
+    if (data.id !== Number($('horizon').value)) throw new Error('文件中的 id 与所选预测周期不一致。');
+    report('正在提交预测任务…');
+    const task = await api('/tasks', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
     $('task-id').value = task.task_id;
     query(task.task_id);
   } catch (error) { stop(); report(error.message); }
-});
-$('convert-json').addEventListener('click', async () => {
-  busy(true);
-  try {
-    const data = await readForecastFile();
-    saveJson(data,`coal-input-${data.id}.json`);
-    report(`JSON 已转换并下载，包含 ${data.price_data.length} 天历史数据。尚未提交预测。`);
-  } catch (error) { report(error.message); }
-  finally { busy(false); }
 });
 $('lookup').addEventListener('click', () => {
   const id = $('task-id').value.trim();

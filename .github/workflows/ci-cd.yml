@@ -50,8 +50,7 @@ jobs:
         run: >-
           docker run --rm --memory=512m --memory-swap=512m
           -v "$PWD/project_materials_2026-10-16/examples:/requests:ro"
-          -v "$PWD/project_materials_2026-10-16/tests/fixtures:/fixtures:ro"
-          coal-price:test python smoke_test.py --request /requests/request-week.json --excel /fixtures/week.xlsx
+          coal-price:test python smoke_test.py --request /requests/request-week.json
       - name: Set lowercase image name
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
       - name: Log in to GHCR

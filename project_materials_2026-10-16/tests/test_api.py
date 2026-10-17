@@ -10,7 +10,6 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'inference'))
 MATERIALS_ROOT = Path(__file__).resolve().parents[1]
 HAS_DEPS = all(importlib.util.find_spec(n) for n in ('flask', 'flask_restful', 'numpy', 'pandas', 'requests'))
 
@@ -20,13 +19,11 @@ class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         fake_modules = {}
-        mapping = json.loads((MATERIALS_ROOT / 'docs/feature-map.json').read_text())
-        keys = list(mapping)
+        keys = list(json.loads((MATERIALS_ROOT / 'docs/feature-map.json').read_text()))
         for period in ('week2week', 'month2month', 'year2year'):
             package = types.ModuleType(period)
             module = types.ModuleType(f'{period}.predict_price')
             module.FEATURE_KEYS = keys
-            module.FEATURE_MAP = mapping
             module.lstm_models = {key: object() for key in keys}
             module.get_data = lambda data: (None, None, None)
             module.optimize_model = lambda *args: [{'predict_price': 100.0}]
@@ -128,31 +125,6 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(self.client.post('/tasks', json=original).status_code, 429)
         finally:
             self.module.worker_slot.release()
-
-    def test_excel_conversion_and_forecast_upload(self):
-        from io import BytesIO
-        content = (MATERIALS_ROOT / 'tests/fixtures/week.xlsx').read_bytes()
-        response = self.client.post('/convert', data={'id': '7', 'file': (BytesIO(content), 'customer.xlsx')})
-        self.assertEqual(response.status_code, 200, response.get_json())
-        converted = response.get_json()
-        expected = json.loads((MATERIALS_ROOT / 'examples/request-week.json').read_text())
-        self.assertEqual(converted['request'], expected)
-        self.assertEqual(converted['summary']['used_days'], 60)
-        with self.client.get('/static/downloads/coal-price-template.xlsx') as template:
-            self.assertEqual(template.status_code, 200)
-        response = self.client.post('/tasks', data={'id': '7', 'file': (BytesIO(content), 'customer.xlsx')})
-        self.assertEqual(response.status_code, 201, response.get_json())
-        self.assertEqual(self.wait_for_task(response.get_json()['task_id'])['status'], 'finished')
-
-    def test_excel_errors_and_auth_do_not_create_tasks(self):
-        from io import BytesIO
-        for endpoint in ('/convert', '/tasks'):
-            response = self.client.post(endpoint, data={'id':'7', 'file':(BytesIO(b'bad'), 'bad.xlsx')})
-            self.assertEqual(response.status_code, 400)
-            with patch.dict('os.environ', {'API_KEY':'test-key'}):
-                response = self.client.post(endpoint, data={'id':'7', 'file':(BytesIO(b'bad'), 'bad.xlsx')})
-                self.assertEqual(response.status_code, 401)
-        self.assertEqual(self.module.tasks, {})
 
 
 if __name__ == '__main__':
