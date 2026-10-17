@@ -30,7 +30,7 @@ The free service jining-coal-price is deployed at https://jining-coal-price.onre
 
 - `/`: Chinese dashboard. Upload an Excel (.xlsx/.xls) or API-format JSON request; select a matching forecast horizon; enter the API key; submit, poll and download results.
 - `/health`: model readiness, public for health probes.
-- `/convert`, `/tasks` and `/tasks/<id>`: Bearer API key required when `API_KEY` is configured. `/convert` returns validated JSON from multipart Excel; `/tasks` accepts either JSON or multipart Excel.
+- `/tasks` and `/tasks/<id>`: Bearer API key required when `API_KEY` is configured.
 - `REQUIRE_API_KEY=1`: refuse public server startup if the key is absent.
 - `STATE_DIR`: SQLite task metadata and completed JSON results; mount durable storage here. Restarted in-flight jobs are marked failed and must be resubmitted. Completed jobs remain queryable.
 - Request limit: 8 MB. One active inference at a time, otherwise HTTP 429.
@@ -48,7 +48,7 @@ Open `http://127.0.0.1:7020`. Generate request files with `project_materials_202
 
 ## Verification status
 
-Verified: 17 automated API/material/explanation/Excel tests, model/data integrity, JavaScript syntax and official Render schema validation. GitHub Actions passed Docker builds, all three model bundles' loading/forward passes and a complete real weekly forecast with SHAP under a 512 MB container limit. GHCR image publication succeeded. The deployed Render service passed HTTPS dashboard, health and unauthorized-access checks, and completed a real seven-day prediction with finite prices and factor contributions after the memory fix. The Excel update also passed real XLSX conversion with exact equality to the original JSON request, full weekly inference in CI under 512 MB, and direct Excel upload with a real seven-day prediction on the live service. Both `.xlsx` and legacy `.xls` parsing are covered by automated tests.
+Verified: nine local API/material/explanation tests, model/data integrity, JavaScript syntax and official Render schema validation. GitHub Actions passed Docker builds, all three model bundles' loading/forward passes and a complete real weekly forecast with SHAP under a 512 MB container limit. GHCR image publication succeeded. The deployed Render service passed HTTPS dashboard, health and unauthorized-access checks, and completed a real seven-day prediction with finite prices and factor contributions after the memory fix.
 
 Not yet verified: complete monthly/yearly forecasts, forecast accuracy and independent backtests. Free storage is ephemeral. Local Docker is unavailable; container verification ran on GitHub.
 
