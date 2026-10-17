@@ -6,7 +6,7 @@ Read the [project report](REPORT.md) for the methodology, recorded experimental 
 
 ## Local workspace layout
 
-Supplemental documents, examples, dependencies, and verification tools are collected in `project_materials_2026-10-16/`. Commands below assume the original project root as the working directory. The workflow definition and ignore templates are stored here as local materials; the hosted GitHub repository has not been reorganized.
+Supplemental documents, examples, dependencies, and verification tools are collected in `project_materials_2026-10-16/`. Commands below assume the original project root as the working directory. The hosted GitHub repository uses this layout too. The active CI/CD workflow is `.github/workflows/ci-cd.yml` at the repository root.
 
 ## Repository contents
 
@@ -23,12 +23,12 @@ Supplemental documents, examples, dependencies, and verification tools are colle
 
 ## Setup and startup
 
-Python 3.11 or 3.12 is recommended. Dependency versions follow the original inference requirements. The exact environment used to train the historical models was not provided, so model loading compatibility remains unverified.
+Python 3.11 is recommended to match the deployed Docker runtime. GitHub Actions verified loading and forward passes for all three model bundles, and a complete seven-day forecast under a 512 MB memory limit. The original training environment was not provided.
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r project_materials_2026-10-16/requirements.txt
+python -m pip install -r inference/requirements.txt
 python project_materials_2026-10-16/scripts/check_project.py
 python inference/app.py
 ```
@@ -44,6 +44,14 @@ curl http://127.0.0.1:7020/tasks/<task_id>
 
 See the [API reference](docs/API.md) and [data and model notes](docs/DATA.md) for details. SHAP analysis can take substantial time.
 
+## Excel upload and JSON conversion
+
+The [live dashboard](https://jining-coal-price.onrender.com/) accepts `.xlsx`, `.xls`, and JSON. Download the [blank Excel template](../inference/static/downloads/coal-price-template.xlsx), fill the `数据` sheet, enter the service API key, select a horizon, and submit. The separate conversion button downloads validated JSON without creating a forecast task.
+
+Excel needs dates, historical prices, and all 211 factors. Weekly/monthly/yearly forecasts need at least 60/90/364 consecutive daily records; the converter sorts dates and selects the latest required records. Missing fields, invalid values, gaps, and conflicting dates are rejected. A price-only spreadsheet is insufficient for the existing model. See the [API reference](docs/API.md) for limits and multipart examples.
+
+The Excel update passed 17 automated tests, exact conversion comparison against the original JSON request, and a real seven-day Excel forecast on the deployed service. Complete monthly/yearly forecasts and accuracy remain unverified.
+
 ## Docker
 
 ```bash
@@ -51,7 +59,7 @@ docker build -f inference/dockerfile -t cci-jining ./inference
 docker run --rm -p 127.0.0.1:7020:7020 cci-jining
 ```
 
-The Docker configuration is included, but a local image build and container startup have not been verified.
+Docker builds and real-model smoke tests passed on GitHub Actions. Local Docker was unavailable; the container checks ran on GitHub.
 
 ## Training
 
@@ -68,7 +76,7 @@ The scripts retain their original experiment dates and data splits. Review those
 
 ## Language and compatibility
 
-Documentation, project paths, and user-facing messages use English. The original Chinese CSV headers and model feature-map values are preserved because existing preprocessing and model artifacts depend on them. API requests use stable English feature codes, listed in [feature-map.json](docs/feature-map.json). The historical target column is `CCI济宁气煤(元/吨)`, and the historical-price input column is `历史价格`.
+The deployed dashboard and Excel validation messages use Chinese; API feature codes remain English. The original Chinese CSV headers and model feature-map values are preserved because existing preprocessing and model artifacts depend on them. API requests use stable English feature codes, listed in [feature-map.json](docs/feature-map.json). The historical target column is `CCI济宁气煤(元/吨)`, and the historical-price input column is `历史价格`.
 
 ## Checks and limitations
 
